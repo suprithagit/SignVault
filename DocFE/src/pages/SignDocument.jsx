@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { FileText, CheckCircle, ArrowLeft, Loader2, PenTool, Trash2, Save, Upload, Type, Edit3 } from "lucide-react";
+import { ArrowLeft, Loader2, PenTool, Trash2, Save, Upload, Type, Move, RotateCcw, X, CheckCircle2 } from "lucide-react";
 import SignatureCanvas from "react-signature-canvas";
+import { Rnd } from "react-rnd"; 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -10,22 +10,31 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
+const SIGNATURE_STYLES = [
+  { name: "Classic Script", class: "font-serif italic" },
+  { name: "Formal", class: "font-sans uppercase tracking-widest" },
+  { name: "Modern Hand", class: "font-mono font-bold" },
+];
+
 const SignDocument = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  // States
   const [signerName, setSignerName] = useState("");
+  const [selectedStyle, setSelectedStyle] = useState(SIGNATURE_STYLES[0].class);
+  const [signatureType, setSignatureType] = useState("draw");
   const [isProcessing, setIsProcessing] = useState(false);
   const [docUrl, setDocUrl] = useState(null);
-  const [signatureType, setSignatureType] = useState("draw");
-  const [uploadedImage, setUploadedImage] = useState(null);
   
-  // Refs
+  // States for the signature object
+  const [isPlaced, setIsPlaced] = useState(false);
+  const [finalSignatureImg, setFinalSignatureImg] = useState(null);
+  const [sigPosition, setSigPosition] = useState({ x: 150, y: 150 });
+  const [sigSize, setSigSize] = useState({ width: 220, height: 100 });
+
   const sigCanvas = useRef(null);
 
-  // 1. Load Preview
   useEffect(() => {
     const loadPreview = async () => {
       try {
@@ -34,169 +43,173 @@ const SignDocument = () => {
         const blob = await response.blob();
         setDocUrl(URL.createObjectURL(blob));
       } catch (error) {
-        toast({ variant: "destructive", title: "Load Error", description: "Failed to fetch document preview." });
+        toast({ variant: "destructive", title: "Error", description: "Failed to load document." });
       }
     };
     loadPreview();
   }, [id, toast]);
 
-  // 2. Clear Logic
-  const handleClear = () => {
-    if (signatureType === "draw") {
-      sigCanvas.current.clear();
-    } else if (signatureType === "upload") {
-      setUploadedImage(null);
-    } else {
-      setSignerName("");
+  // Handle placing the signature box on PDF
+  const handlePlaceSignBox = () => {
+    setIsPlaced(true);
+    if (signatureType === "type") {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      canvas.width = 400; canvas.height = 150;
+      const fontFamily = selectedStyle.includes('serif') ? 'serif' : selectedStyle.includes('mono') ? 'monospace' : 'sans-serif';
+      ctx.font = `italic 40px ${fontFamily}`;
+      ctx.fillText(signerName, 20, 80);
+      setFinalSignatureImg(canvas.toDataURL("image/png"));
     }
-    toast({ description: "Signature cleared." });
+    toast({ title: "Box Placed", description: "Drag the box to where you want to sign." });
   };
 
-  // 3. Image Upload Logic
-  const handleImageUpload = (e) => {
+  // Capture the drawing once the user finishes
+  const handleConfirmDrawing = () => {
+    if (sigCanvas.current && !sigCanvas.current.isEmpty()) {
+      const data = sigCanvas.current.getTrimmedCanvas().toDataURL("image/png");
+      setFinalSignatureImg(data);
+      toast({ title: "Signature Captured" });
+    }
+  };
+
+  const onImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => setUploadedImage(reader.result);
+      reader.onload = () => {
+        setFinalSignatureImg(reader.result);
+        setIsPlaced(true);
+      };
       reader.readAsDataURL(file);
     }
   };
 
-  // 4. Final Save/Sign Logic
-  const handleSaveSignature = async () => {
-    let signatureData = "";
-
-    if (signatureType === "draw") {
-      if (sigCanvas.current.isEmpty()) {
-        return toast({ variant: "destructive", title: "Empty Signature", description: "Please draw your signature first." });
-      }
-      signatureData = sigCanvas.current.getTrimmedCanvas().toDataURL("image/png");
-    } else if (signatureType === "upload") {
-      if (!uploadedImage) {
-        return toast({ variant: "destructive", title: "Missing Image", description: "Please upload a signature image." });
-      }
-      signatureData = uploadedImage;
-    } else if (signatureType === "type") {
-      if (!signerName.trim()) {
-        return toast({ variant: "destructive", title: "Missing Name", description: "Please type your name." });
-      }
-      // Note: For "Type", you usually convert text to image on backend or use a signature font
-      signatureData = `TEXT_SIG:${signerName}`; 
-    }
-
+  const handleSaveFinalDoc = async () => {
+    if (!finalSignatureImg) return toast({ variant: "destructive", title: "Wait!", description: "Please sign inside the box first." });
     setIsProcessing(true);
     try {
-      // Sending the signature as a POST body (Base64)
-      const response = await fetch(`${API_BASE_URL}/documents/${id}/sign`, {
+      const response = await fetch(`${API_BASE_URL}/documents/${id}/final-sign`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          signatureData: signatureData,
-          signerName: signerName,
-          type: signatureType
+          signatureImage: finalSignatureImg,
+          x: Math.round(sigPosition.x),
+          y: Math.round(sigPosition.y),
+          width: Math.round(sigSize.width),
+          height: Math.round(sigSize.height),
+          signerName: signerName || "Digital Signature"
         }),
       });
-
       if (response.ok) {
-        toast({ title: "Success", description: "Document signed and saved to vault." });
+        toast({ title: "Document Signed Successfully" });
         navigate("/dashboard");
-      } else {
-        throw new Error("Failed to save");
       }
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "Could not save signature." });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Network Error" });
     } finally {
       setIsProcessing(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-background pt-24 pb-12 px-4">
-      <div className="mx-auto max-w-6xl">
-        <Button variant="ghost" onClick={() => navigate("/dashboard")} className="mb-6 gap-2">
-          <ArrowLeft className="h-4 w-4" /> Back to Vault
-        </Button>
+    <div className="min-h-screen bg-background pt-24 pb-12 px-6">
+      <div className="mx-auto max-w-full grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        {/* LEFT PANEL */}
+        <div className="lg:col-span-3 space-y-4">
+          <div className="bg-card p-5 rounded-2xl border shadow-sm">
+            <h2 className="text-lg font-bold mb-4 flex items-center gap-2"><PenTool size={18}/> 1. Choose Method</h2>
+            
+            <Tabs defaultValue="draw" onValueChange={(val) => { setSignatureType(val); setIsPlaced(false); setFinalSignatureImg(null); }}>
+              <TabsList className="grid w-full grid-cols-3 mb-4">
+                <TabsTrigger value="draw">Draw</TabsTrigger>
+                <TabsTrigger value="type">Type</TabsTrigger>
+                <TabsTrigger value="upload">Upload</TabsTrigger>
+              </TabsList>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* PDF PREVIEW */}
-          <div className="lg:col-span-2 bg-card rounded-xl border shadow-lg overflow-hidden h-[750px]">
-            {docUrl ? (
-              <iframe src={`${docUrl}#toolbar=0`} className="w-full h-full" title="PDF Preview" />
-            ) : (
-              <div className="flex items-center justify-center h-full"><Loader2 className="animate-spin" /></div>
-            )}
+              <TabsContent value="draw" className="text-sm text-muted-foreground py-4">
+                Click "Place Box" and draw your signature directly on the document.
+              </TabsContent>
+
+              <TabsContent value="type" className="space-y-4">
+                <Input placeholder="Type Name" value={signerName} onChange={(e) => setSignerName(e.target.value)} className={`h-12 ${selectedStyle}`} />
+                <div className="flex gap-1">
+                  {SIGNATURE_STYLES.map((s) => (
+                    <button key={s.name} onClick={() => setSelectedStyle(s.class)} className={`flex-1 p-1 text-[10px] border rounded ${selectedStyle === s.class ? 'border-primary' : ''}`}>{s.name}</button>
+                  ))}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="upload" className="p-4 border-2 border-dashed rounded-xl text-center">
+                <input type="file" id="sig-upload" hidden accept="image/*" onChange={onImageUpload} />
+                <label htmlFor="sig-upload" className="cursor-pointer text-primary text-sm flex flex-col items-center gap-2">
+                  <Upload size={20} /> Choose File
+                </label>
+              </TabsContent>
+            </Tabs>
+
+            <Button className="w-full mt-6 gap-2" onClick={handlePlaceSignBox} disabled={isPlaced}>
+              <Move size={16} /> Place Sign Box
+            </Button>
           </div>
 
-          {/* SIGNATURE PANEL */}
-          <div className="space-y-6">
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card p-6 rounded-xl border shadow-md">
-              <h2 className="text-xl font-bold flex items-center gap-2 mb-4">
-                <Edit3 className="h-5 w-5 text-primary" /> Create Signature
-              </h2>
+          <Button variant="outline" className="w-full" onClick={() => window.location.reload()}>
+            <RotateCcw size={16} className="mr-2"/> Reset All
+          </Button>
+        </div>
 
-              <Tabs defaultValue="draw" className="w-full" onValueChange={setSignatureType}>
-                <TabsList className="grid w-full grid-cols-3 mb-4">
-                  <TabsTrigger value="draw" className="gap-1"><PenTool className="h-3 w-3" /> Draw</TabsTrigger>
-                  <TabsTrigger value="type" className="gap-1"><Type className="h-3 w-3" /> Type</TabsTrigger>
-                  <TabsTrigger value="upload" className="gap-1"><Upload className="h-3 w-3" /> Upload</TabsTrigger>
-                </TabsList>
-
-                {/* DRAWING BOARD */}
-                <TabsContent value="draw" className="border rounded-lg bg-white overflow-hidden">
-                  <SignatureCanvas
-                    ref={sigCanvas}
-                    penColor="black"
-                    canvasProps={{ className: "w-full h-48 cursor-crosshair" }}
-                  />
-                </TabsContent>
-
-                {/* TYPE TO SIGN */}
-                <TabsContent value="type" className="space-y-4">
-                  <div className="p-8 border rounded-lg bg-slate-50 flex items-center justify-center">
-                    <Input
-                      placeholder="Enter full name"
-                      value={signerName}
-                      onChange={(e) => setSignerName(e.target.value)}
-                      className="text-2xl text-center italic font-serif border-none bg-transparent focus-visible:ring-0 shadow-none"
-                    />
-                  </div>
-                  <p className="text-[10px] text-center text-muted-foreground italic">Standard digital font signature applied</p>
-                </TabsContent>
-
-                {/* UPLOAD IMAGE */}
-                <TabsContent value="upload" className="space-y-4">
-                  <div className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center bg-slate-50">
-                    {uploadedImage ? (
-                      <img src={uploadedImage} alt="Uploaded signature" className="max-h-32 object-contain" />
+        {/* CENTER PANEL (PDF) */}
+        <div className="lg:col-span-7 relative bg-slate-200 rounded-2xl border h-[80vh] overflow-hidden">
+          <div className="flex-1 overflow-auto p-8 flex justify-center bg-slate-400 h-full">
+            {docUrl && (
+              <div className="relative bg-white shadow-2xl" style={{ width: '595px', height: '842px' }}>
+                <iframe src={`${docUrl}#toolbar=0`} className="w-full h-full pointer-events-none" title="PDF" />
+                
+                {isPlaced && (
+                  <Rnd
+                    size={{ width: sigSize.width, height: sigSize.height }}
+                    position={{ x: sigPosition.x, y: sigPosition.y }}
+                    onDragStop={(e, d) => setSigPosition({ x: d.x, y: d.y })}
+                    onResizeStop={(e, dir, ref, delta, pos) => {
+                      setSigSize({ width: ref.offsetWidth, height: ref.offsetHeight });
+                      setSigPosition(pos);
+                    }}
+                    bounds="parent"
+                    className="z-50 border-2 border-primary bg-white shadow-lg flex items-center justify-center group"
+                  >
+                    {/* IF TYPE/UPLOAD, SHOW IMAGE. IF DRAW, SHOW CANVAS */}
+                    {signatureType === "draw" && !finalSignatureImg ? (
+                      <div className="relative w-full h-full">
+                        <SignatureCanvas 
+                          ref={sigCanvas} 
+                          penColor="black" 
+                          canvasProps={{ className: "w-full h-full cursor-crosshair" }} 
+                        />
+                        <div className="absolute -bottom-8 left-0 flex gap-2">
+                           <Button size="xs" variant="ghost" className="h-6 px-2 text-[10px]" onClick={() => sigCanvas.current.clear()}><Trash2 size={12}/></Button>
+                           <Button size="xs" className="h-6 px-2 text-[10px]" onClick={handleConfirmDrawing}><CheckCircle2 size={12}/></Button>
+                        </div>
+                      </div>
                     ) : (
-                      <>
-                        <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                        <label className="cursor-pointer text-sm text-primary hover:underline">
-                          Click to upload PNG/JPG
-                          <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
-                        </label>
-                      </>
+                      <img src={finalSignatureImg} className="w-full h-full pointer-events-none p-1" />
                     )}
-                  </div>
-                </TabsContent>
-              </Tabs>
-
-              {/* ACTION BUTTONS */}
-              <div className="grid grid-cols-2 gap-4 mt-8">
-                <Button variant="outline" onClick={handleClear} className="gap-2">
-                  <Trash2 className="h-4 w-4" /> Clear
-                </Button>
-                <Button onClick={handleSaveSignature} disabled={isProcessing} className="gap-2">
-                  {isProcessing ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="h-4 w-4" />}
-                  Save Sign
-                </Button>
+                    
+                    <button onClick={() => { setIsPlaced(false); setFinalSignatureImg(null); }} className="absolute -top-3 -right-3 bg-red-600 text-white rounded-full p-1"><X size={14} /></button>
+                  </Rnd>
+                )}
               </div>
-            </motion.div>
+            )}
+          </div>
+        </div>
 
-            <div className="p-4 bg-primary/5 rounded-lg border border-primary/20 text-[11px] text-muted-foreground">
-              <p className="font-semibold text-primary mb-1">LEGAL DISCLOSURE</p>
-              <p>By saving this signature, you agree that this electronic representation is as legally binding as a handwritten signature. SignVault records your IP address and timestamp for audit purposes.</p>
-            </div>
+        {/* RIGHT PANEL */}
+        <div className="lg:col-span-2">
+          <div className="bg-card p-6 rounded-2xl border sticky top-24">
+            <h3 className="font-bold mb-4 flex items-center gap-2"><Save size={18}/> 2. Finalize</h3>
+            <Button className="w-full h-16" onClick={handleSaveFinalDoc} disabled={!finalSignatureImg || isProcessing}>
+              {isProcessing ? <Loader2 className="animate-spin" /> : "Save Page"}
+            </Button>
           </div>
         </div>
       </div>

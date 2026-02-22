@@ -4,10 +4,11 @@ import com.mongodb.client.gridfs.model.GridFSFile;
 import com.signvault.dto.SignatureRequest;
 import com.signvault.entity.SignatureDocument;
 import com.signvault.repository.DocumentRepository;
-import org.apache.pdfbox.Loader; // Required for PDFBox 3.0+
+import org.apache.pdfbox.Loader; 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,7 +19,6 @@ import org.springframework.data.mongodb.gridfs.GridFsOperations;
 import org.springframework.data.mongodb.gridfs.GridFsTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-
 
 import java.io.*;
 import java.time.LocalDateTime;
@@ -39,99 +39,96 @@ public class DocumentServiceImpl implements DocumentService {
 
     @Override
     public SignatureDocument uploadDocument(MultipartFile file) throws IOException {
-        Object fileId = gridFsTemplate.store(
-            file.getInputStream(), 
-            file.getOriginalFilename(), 
-            file.getContentType()
-        );
-
-        SignatureDocument doc = SignatureDocument.builder()
+        Object fileId = gridFsTemplate.store(file.getInputStream(), file.getOriginalFilename(), file.getContentType());
+        return repository.save(SignatureDocument.builder()
             .fileName(file.getOriginalFilename())
             .contentType(file.getContentType())
             .uploadDate(LocalDateTime.now())
             .status("PENDING")
             .gridFsId(fileId.toString())
-            .build();
-
-        return repository.save(doc); //
+            .build());
     }
 
     @Override
     public Resource downloadDocument(String id) {
-        SignatureDocument doc = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Document metadata not found"));
-
+        SignatureDocument doc = repository.findById(id).orElseThrow(() -> new RuntimeException("Not found"));
         GridFSFile gridFsFile = gridFsTemplate.findOne(new Query(Criteria.where("_id").is(new ObjectId(doc.getGridFsId()))));
-        
-        if (gridFsFile == null) throw new RuntimeException("Binary file not found in GridFS");
-
-        return gridFsOperations.getResource(gridFsFile); //
+        return gridFsOperations.getResource(gridFsFile);
     }
 
     @Override
     public SignatureDocument applySignature(String id, SignatureRequest request) {
         try {
-            SignatureDocument doc = repository.findById(id)
-                    .orElseThrow(() -> new RuntimeException("Document not found"));
-
-            // 1. Get current binary
+            SignatureDocument doc = repository.findById(id).orElseThrow(() -> new RuntimeException("Document not found"));
+            
             byte[] pdfBytes;
             try (InputStream is = downloadDocument(id).getInputStream()) {
                 pdfBytes = is.readAllBytes();
             }
 
-            // 2. Process with PDFBox 3.x
             try (PDDocument pdDocument = Loader.loadPDF(pdfBytes)) {
+                // Handle first page
                 PDPage page = pdDocument.getPage(0); 
-                float pageHeight = page.getMediaBox().getHeight();
+                PDRectangle mediaBox = page.getMediaBox();
+                float pdfWidth = mediaBox.getWidth();
+                float pdfHeight = mediaBox.getHeight();
                 
-                // Decode Base64 Image
-                String b64Data = request.getSignatureImage();
-                if (b64Data.contains(",")) b64Data = b64Data.split(",")[1];
-                byte[] imageBytes = Base64.getDecoder().decode(b64Data);
+                // FE assumes a fixed 595x842 canvas. We must scale the coordinates if the PDF is different.
+                float scaleX = pdfWidth / 595f;
+                float scaleY = pdfHeight / 842f;
+
+                String b64 = request.getSignatureImage();
+                if (b64.contains(",")) b64 = b64.split(",")[1];
+                byte[] imageBytes = Base64.getDecoder().decode(b64);
                 
+                // PDFBox 3.x uses createFromData
                 PDImageXObject pdImage = PDImageXObject.createFromByteArray(pdDocument, imageBytes, "sig");
 
-                // 3. Overlay Content
-                try (PDPageContentStream contentStream = new PDPageContentStream(pdDocument, page, PDPageContentStream.AppendMode.APPEND, true, true)) {
-                    float x = (float) request.getX();
+                try (PDPageContentStream contents = new PDPageContentStream(pdDocument, page, PDPageContentStream.AppendMode.APPEND, true, true)) {
+                    // Scaled Coordinates
+                    float x = (float) request.getX() * scaleX;
+                    float width = (float) request.getWidth() * scaleX;
+                    float height = (float) request.getHeight() * scaleY;
                     
-                    // THE FIX: Subtract the UI Y and Height from the total Page Height
-                    float y = pageHeight - (float) request.getY() - (float) request.getHeight();
+                    // Flip Y: PDF (0,0) is bottom-left. UI (0,0) is top-left.
+                    float y = pdfHeight - ((float) request.getY() * scaleY) - height;
                     
-                    contentStream.drawImage(pdImage, x, y, (float) request.getWidth(), (float) request.getHeight());
+                    contents.drawImage(pdImage, x, y, width, height);
                 }
-                // 4. Save to Temp Stream and Re-upload
+
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 pdDocument.save(baos);
 
                 try (InputStream signedIs = new ByteArrayInputStream(baos.toByteArray())) {
-                    String signedName = "signed_" + doc.getFileName();
-                    Object newFileId = gridFsTemplate.store(signedIs, signedName, "application/pdf");
+                    String originalName = doc.getFileName(); 
+                    
+                    // 1. Store the new file
+                    Object newFileId = gridFsTemplate.store(signedIs, originalName, "application/pdf");
 
-                    // 5. Update Metadata
+                    // 2. Delete the old version to avoid storage bloat
+                    gridFsTemplate.delete(new Query(Criteria.where("_id").is(new ObjectId(doc.getGridFsId()))));
+
+                    // 3. Update metadata
                     doc.setGridFsId(newFileId.toString());
-                    doc.setFileName(signedName);
                     doc.setStatus("SIGNED");
                     doc.setSignedBy(request.getSignerName());
-                    doc.setSignedAt(LocalDateTime.now()); //
-
+                    doc.setSignedAt(LocalDateTime.now());
                     return repository.save(doc);
                 }
             }
         } catch (IOException e) {
-            throw new RuntimeException("Failed to apply visual signature", e);
+            throw new RuntimeException("Signature placement failed: " + e.getMessage());
         }
     }
 
     @Override
-    public List<SignatureDocument> getAllDocuments() {
-        return repository.findAll();
-    }
+    public List<SignatureDocument> getAllDocuments() { return repository.findAll(); }
 
-	@Override
-	public SignatureDocument signDocument(String id, String signerName) {
-		// TODO Auto-generated method stub
-		return null;
-	}
+    @Override
+    public SignatureDocument signDocument(String id, String signerName) {
+        SignatureDocument doc = repository.findById(id).orElseThrow(() -> new RuntimeException("Not found"));
+        doc.setSignedBy(signerName); 
+        doc.setStatus("SIGNED");
+        return repository.save(doc);
+    }
 }

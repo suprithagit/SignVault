@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Loader2, PenTool, Trash2, Save, Upload, Type, Move, RotateCcw, X, CheckCircle2 } from "lucide-react";
+import { Loader2, PenTool, Trash2, Save, Upload, Type, Move, RotateCcw, X, CheckCircle2, ArrowLeft } from "lucide-react";
 import SignatureCanvas from "react-signature-canvas";
 import { Rnd } from "react-rnd"; 
 import { Button } from "@/components/ui/button";
@@ -165,6 +165,17 @@ const SignDocument = () => {
 
   return (
     <div className="min-h-screen bg-background pt-24 pb-12 px-6">
+      {/* BACK TO DASHBOARD BUTTON */}
+      <div className="mx-auto max-w-full mb-6">
+        <Button 
+          variant="ghost" 
+          onClick={() => navigate("/dashboard")} 
+          className="gap-2 text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft size={16} /> Back to Dashboard
+        </Button>
+      </div>
+
       <div className="mx-auto max-w-full grid grid-cols-1 lg:grid-cols-12 gap-8">
         
         {/* LEFT PANEL: Signature Creation */}

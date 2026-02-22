@@ -1,5 +1,6 @@
 package com.signvault.service;
 
+import com.signvault.dto.SignatureRequest;
 import com.signvault.entity.SignatureDocument;
 
 import org.springframework.core.io.Resource;
@@ -12,4 +13,5 @@ public interface DocumentService {
     List<SignatureDocument> getAllDocuments();
 	Resource downloadDocument(String id);
 	SignatureDocument signDocument(String id, String signerName);
+	SignatureDocument applySignature(String id, SignatureRequest request);
 }

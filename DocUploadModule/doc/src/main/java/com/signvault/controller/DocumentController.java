@@ -1,5 +1,6 @@
 package com.signvault.controller;
 
+import com.signvault.dto.SignatureRequest;
 import com.signvault.entity.SignatureDocument;
 import com.signvault.service.DocumentService;
 
@@ -52,5 +53,17 @@ public class DocumentController {
             @RequestParam String signerName) {
         // This calls the signDocument method we updated in your Service
         return ResponseEntity.ok(documentService.signDocument(id, signerName));
+    }
+    
+    @PostMapping("/{id}/final-sign")
+    public ResponseEntity<?> finalizeSignature(
+            @PathVariable String id, 
+            @RequestBody SignatureRequest request) {
+        try {
+            SignatureDocument updatedDoc = documentService.applySignature(id, request);
+            return ResponseEntity.ok(updatedDoc);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("Signature failed: " + e.getMessage());
+        }
     }
 }

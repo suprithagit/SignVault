@@ -1,0 +1,8 @@
+spring:
+  mongodb:
+    uri: mongodb+srv://supritharpcta_db_user:${MONGO_PASSWORD}@cluster0.hxfpwjc.mongodb.net/signature_db?authSource=admin&retryWrites=true&w=majority
+  servlet:
+    multipart:
+      # Keeps your 10MB limit active to avoid 500 errors on PDF uploads
+      max-file-size: 10MB
+      max-request-size: 10MB

@@ -1,0 +1,88 @@
+{
+  "navbar": {
+    "brand": "SignVault",
+    "menuItems": [
+      { "label": "Features", "sectionId": "features" },
+      { "label": "How It Works", "sectionId": "how-it-works" },
+      { "label": "Security", "sectionId": "security" }
+    ],
+    "signInButton": "Sign In",
+    "getStartedButton": "Get Started",
+    "backToHomeButton": "Back to Home"
+  },
+  "hero": {
+    "badge": "Enterprise-Grade Document Signing",
+    "title": {
+      "line1": "Sign Documents",
+      "highlight": "Securely",
+      "line2": "From Anywhere"
+    },
+    "description": "Upload, sign, and share legally binding documents with full audit trails. Built for teams that demand security and compliance.",
+    "ctaPrimary": "Start Signing Free",
+    "ctaSecondary": "Watch Demo",
+    "trustBadges": [
+      { "icon": "FileCheck", "label": "Legally Binding" },
+      { "icon": "Shield", "label": "256-bit Encryption" },
+      { "icon": "FileCheck", "label": "Audit Trail" }
+    ]
+  },
+  "features": {
+    "title": "Everything You Need to Sign",
+    "subtitle": "A complete document signing platform built for security and simplicity.",
+    "items": [
+      { "icon": "Upload", "title": "Upload Documents", "description": "Drag and drop PDFs, Word docs, or images. Supports batch uploads for enterprise workflows." },
+      { "icon": "PenTool", "title": "Place Signatures", "description": "Draw, type, or upload your signature. Place it precisely where you need it on any page." },
+      { "icon": "Share2", "title": "Share Signing Links", "description": "Send secure signing links to anyone. Track who has viewed and signed in real-time." },
+      { "icon": "FileDown", "title": "Download Signed PDFs", "description": "Generate tamper-proof signed PDFs with embedded digital certificates and timestamps." },
+      { "icon": "Shield", "title": "Enterprise Security", "description": "End-to-end encryption, role-based access, and compliance with eIDAS and ESIGN regulations." },
+      { "icon": "Clock", "title": "Full Audit Trail", "description": "Every action is logged with IP, timestamp, and user identity for complete traceability." }
+    ]
+  },
+  "howItWorks": {
+    "title": "How It Works",
+    "subtitle": "Four simple steps from document to signed agreement.",
+    "steps": [
+      { "number": "01", "title": "Upload", "description": "Upload your document in PDF, DOCX, or image format." },
+      { "number": "02", "title": "Prepare", "description": "Add signature fields and assign signers with roles." },
+      { "number": "03", "title": "Send", "description": "Share a secure link — signers get notified instantly." },
+      { "number": "04", "title": "Sign & Download", "description": "Signers complete the process; you get a certified PDF." }
+    ]
+  },
+  "security": {
+    "title": "Security First",
+    "subtitle": "Your documents deserve enterprise-grade protection.",
+    "items": [
+      { "icon": "Lock", "title": "AES-256 Encryption", "description": "All documents encrypted at rest and in transit." },
+      { "icon": "ShieldCheck", "title": "eIDAS & ESIGN Compliant", "description": "Legally binding signatures worldwide." },
+      { "icon": "FileKey", "title": "Tamper-Proof Certificates", "description": "Digital certificates embedded in every signed PDF." },
+      { "icon": "Globe", "title": "SOC 2 Ready", "description": "Built with enterprise audit and compliance standards." }
+    ]
+  },
+  "footer": {
+    "brand": "SignVault",
+    "copyright": "© 2026 SignVault. All rights reserved."
+  },
+  "dashboard": {
+    "title": "Documents",
+    "subtitle": "Manage and track your signing workflows.",
+    "newDocumentButton": "New Document",
+    "statsLabels": {
+      "totalDocuments": "Total Documents",
+      "pending": "Pending",
+      "completed": "Completed",
+      "sentForSigning": "Sent for Signing"
+    },
+    "upload": {
+      "title": "Drop files here or click to upload",
+      "subtitle": "Supports PDF, DOCX, PNG, JPG (up to 25MB)"
+    },
+    "recentDocuments": "Recent Documents",
+    "searchPlaceholder": "Search...",
+    "statusLabels": {
+      "draft": "Draft",
+      "pending": "Awaiting Signatures",
+      "completed": "Completed"
+    },
+    "signedText": "signed"
+  }
+}

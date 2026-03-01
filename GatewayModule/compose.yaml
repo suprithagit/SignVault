@@ -1,0 +1,34 @@
+services:
+  eureka-server:
+    build: ./ServiceRegistryModule
+    ports:
+      - "8761:8761"
+
+  auth-service:
+    build: ./RegistrationModule
+    ports:
+      - "8081:8081"
+    depends_on:
+      - eureka-server
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+
+  doc-signature-app:
+    build: ./DocUploadModule
+    ports:
+      - "8082:8082"
+    depends_on:
+      - eureka-server
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+
+  api-gateway:
+    build: ./GatewayModule
+    ports:
+      - "9090:9090"
+    depends_on:
+      - eureka-server
+      - auth-service
+      - doc-signature-app
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/

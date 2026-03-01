@@ -1,6 +1,5 @@
 package com.secure.registration.config;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -14,7 +13,6 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.web.servlet.config.annotation.CorsRegistry;
 
 import com.secure.registration.security.AuthEntryPointJwt;
 import com.secure.registration.security.AuthTokenFilter;
@@ -25,9 +23,6 @@ import com.secure.registration.service.UserDetailsServiceImpl;
 @EnableMethodSecurity
 public class WebSecurityConfig {
 
-    
-    @Value("${app.frontend.url}")
-    private String frontendUrl;
 
     private final UserDetailsServiceImpl userDetailsService;
     private final AuthEntryPointJwt unauthorizedHandler;
@@ -66,19 +61,17 @@ public class WebSecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            // 1. ENABLE CORS in Spring Security
-            .cors(cors -> cors.configure(http)) 
-            
-            // 2. Disable CSRF (standard for JWT/Stateless)
+            // 1. Disable CSRF (standard for JWT/Stateless)
             .csrf(AbstractHttpConfigurer::disable)
+            
+            // 2. Remove .cors() as it's handled at the Gateway level
             
             .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> 
                 auth.requestMatchers("/api/auth/**").permitAll()
                     .requestMatchers("/api/test/**").permitAll()
-                    // Ensure OPTIONS requests aren't blocked by security
-                    .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
+                    // All other requests require a valid JWT
                     .anyRequest().authenticated()
             );
         

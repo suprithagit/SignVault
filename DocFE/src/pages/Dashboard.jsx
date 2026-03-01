@@ -1,14 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
-import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate } from "react-router-dom"; // Added for signing navigation
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Upload, FileText, Clock, CheckCircle2,
-  Send, MoreHorizontal, Plus, Search, Loader2, Eye, ArrowRight, X, Download, PenTool
+  Send, MoreHorizontal, Plus, Search, Loader2, Eye, ArrowRight, X, Download, PenTool,
+  UserCircle // Icon for the username display
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Navbar from "@/components/Navbar";
+import { useAuth } from "@/contexts/AuthContext"; // Import for authentication
 import { useContent } from "@/contexts/ContentContext";
 import { config } from "@/lib/config";
 import { useToast } from "@/hooks/use-toast";
@@ -23,16 +24,19 @@ const Dashboard = () => {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  const { isAuthenticated, loading: authLoading } = useAuth(); // Access auth state
+  // Get user data and auth status from context
+  const { isAuthenticated, loading: authLoading, user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const content = useContent();
   const t = content.dashboard || {};
 
-  // 1. Fetch Remote Documents
+  // 1. Fetch Remote Documents (Updated with credentials to fix Sync Error)
   const fetchDocuments = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/documents`);
+      const response = await fetch(`${API_BASE_URL}/documents`, {
+        credentials: 'include' // Sends the JWT cookie to the backend
+      });
       if (!response.ok) throw new Error("Failed to fetch");
       const data = await response.json();
       setDocuments(data);
@@ -47,14 +51,29 @@ const Dashboard = () => {
     }
   }, [toast]);
 
+  // Handle Protection and Initial Fetch
   useEffect(() => {
-    fetchDocuments();
-  }, [fetchDocuments]);
+    if (!authLoading && !isAuthenticated) {
+      navigate("/login");
+    } else if (isAuthenticated) {
+      fetchDocuments();
+    }
+  }, [isAuthenticated, authLoading, navigate, fetchDocuments]);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   // 2. Download/View Logic (Binary Stream)
   const handleDownload = async (docId, fileName, openInTab = false) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/documents/download/${docId}`);
+      const response = await fetch(`${API_BASE_URL}/documents/download/${docId}`, {
+        credentials: 'include' // Fixes unauthorized download errors
+      });
       if (!response.ok) throw new Error("Download failed");
 
       const blob = await response.blob();
@@ -85,6 +104,7 @@ const Dashboard = () => {
     try {
       const response = await fetch(`${API_BASE_URL}/documents/upload`, {
         method: "POST",
+        credentials: 'include', // Sends session cookie for upload
         body: formData,
       });
 
@@ -112,6 +132,20 @@ const Dashboard = () => {
       <Navbar />
 
       <main className="mx-auto max-w-7xl px-4 pt-24 pb-16 sm:px-6 lg:px-8">
+        
+        {/* GLOBAL STANDARD USER PROFILE CORNER */}
+        <div className="flex justify-end mb-6">
+          <div className="flex items-center gap-3 bg-card/60 backdrop-blur-md border border-border/50 px-4 py-2 rounded-full shadow-sm hover:bg-card/80 transition-all">
+            <div className="text-right">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium leading-none">Authenticated</p>
+              <p className="text-sm font-bold text-primary">{user?.username || 'Supritha'}</p>
+            </div>
+            <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20">
+              <UserCircle className="h-6 w-6 text-primary" />
+            </div>
+          </div>
+        </div>
+
         {/* STAGING AREA PREVIEW */}
         <AnimatePresence>
           {stagedFile && (
@@ -151,8 +185,8 @@ const Dashboard = () => {
         )}
 
         {/* ARCHIVE TABLE */}
-        <div className="rounded-xl border bg-card/80 backdrop-blur-md shadow-2xl">
-          <div className="border-b p-5 flex justify-between items-center">
+        <div className="rounded-xl border bg-card/80 backdrop-blur-md shadow-2xl overflow-hidden">
+          <div className="border-b p-5 flex justify-between items-center bg-card/50">
             <h2 className="text-lg font-bold">Document Vault</h2>
             <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-1.5 w-64 shadow-sm">
               <Search className="h-4 w-4 text-muted-foreground" />
@@ -179,7 +213,7 @@ const Dashboard = () => {
                   documents.map((doc) => (
                     <tr key={doc.id} className="hover:bg-primary/5 transition-colors group">
                       <td className="px-6 py-4 flex items-center gap-3">
-                        <div className="p-2 bg-muted rounded group-hover:bg-primary/20"><FileText className="h-5 w-5 text-primary" /></div>
+                        <div className="p-2 bg-muted rounded group-hover:bg-primary/20 transition-colors"><FileText className="h-5 w-5 text-primary" /></div>
                         <span className="font-medium">{doc.fileName}</span>
                       </td>
                       <td className="px-6 py-4">

@@ -1,0 +1,12 @@
+services:
+  service-registry:
+    build: .
+    container_name: service-registry
+    ports:
+      - "8761:8761"
+    networks:
+      - signvault-network
+
+networks:
+  signvault-network:
+    external: true

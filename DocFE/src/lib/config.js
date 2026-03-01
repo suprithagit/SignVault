@@ -6,8 +6,8 @@ export const config = {
     howItWorks: import.meta.env.VITE_HOW_IT_WORKS_LINK || "#how-it-works",
     security: import.meta.env.VITE_SECURITY_LINK || "#security",
     demo: import.meta.env.VITE_DEMO_LINK || "#demo",
-    signup: import.meta.env.VITE_SIGNUP_LINK || "/dashboard",
-    signin: import.meta.env.VITE_SIGNIN_LINK || "/signin",
+    signup: import.meta.env.VITE_SIGNUP_LINK || "/signup",
+    signin: import.meta.env.VITE_SIGNIN_LINK || "/login",
   },
   images: {
     heroBg: "/images/hero-bg.png",

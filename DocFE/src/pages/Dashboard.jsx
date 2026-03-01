@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom"; // Added for signing navigation
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -22,6 +23,7 @@ const Dashboard = () => {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
 
+  const { isAuthenticated, loading: authLoading } = useAuth(); // Access auth state
   const { toast } = useToast();
   const navigate = useNavigate();
   const content = useContent();

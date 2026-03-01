@@ -1,0 +1,14 @@
+services:
+  doc-service:
+    build: .
+    container_name: doc-service
+    ports:
+      - "8082:8082"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka/
+    networks:
+      - signvault-network
+
+networks:
+  signvault-network:
+    external: true

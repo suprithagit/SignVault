@@ -44,7 +44,9 @@ const Navbar = () => {
             </Link>
           ) : (
             <>
-              <Button variant="ghost" size="sm">{t.signInButton || "Sign In"}</Button>
+              <Link to={config.links.signin}>
+                <Button variant="ghost" size="sm">{t.signInButton || "Sign In"}</Button>
+              </Link>
               <Link to={config.links.signup}>
                 <Button size="sm">{t.getStartedButton || "Get Started"}</Button>
               </Link>

@@ -94,33 +94,67 @@ const Dashboard = () => {
     }
   };
 
+  const handleDelete = async (docId) => {
+    // 1. Confirm with the user
+    if (!window.confirm("Are you sure you want to permanently remove this document?")) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/documents/${docId}`, {
+        method: "DELETE",
+        credentials: 'include', // Important for authenticated deletion
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Deleted",
+          description: "Document has been removed from your vault.",
+        });
+        // 2. Optimistic UI update: Remove from local state immediately
+        setDocuments((prev) => prev.filter((doc) => doc.id !== docId));
+      } else {
+        throw new Error("Deletion failed");
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Could not delete the document. Please try again.",
+      });
+    }
+  };
   // 3. Commit to Backend
   const handleCommitToBackend = async () => {
-    if (!stagedFile) return;
+    if (!stagedFile || !user) return; // Ensure user is logged in
     setIsUploading(true);
+
     const formData = new FormData();
     formData.append("file", stagedFile);
 
+    // Send the user identifier (email or username) to the backend
+    formData.append("ownerEmail", user.email);
+    formData.append("ownerName", user.username);
+
     try {
-      const response = await fetch(`${API_BASE_URL}/documents/upload`, {
+      const response = await fetch(`${API_BASE_URL}/api/documents/upload`, {
         method: "POST",
-        credentials: 'include', // Sends session cookie for upload
+        credentials: 'include', // Ensures session cookies are sent
         body: formData,
       });
 
       if (response.ok) {
-        toast({ title: "Archived", description: "Document successfully moved to the cloud vault." });
-        setStagedFile(null);
-        setPreviewUrl(null);
-        fetchDocuments();
+        const savedDoc = await response.json();
+        toast({ title: "Success", description: "Document archived to your vault." });
+
+        if (savedDoc && savedDoc.id) {
+          navigate(`/sign/${savedDoc.id}`);
+        }
       }
     } catch (error) {
-      toast({ variant: "destructive", title: "Upload Failed", description: "Backend connection interrupted." });
+      toast({ variant: "destructive", title: "Upload Failed", description: "Connection error." });
     } finally {
       setIsUploading(false);
     }
   };
-
   const statusConfig = {
     PENDING: { label: "Pending", variant: "secondary", color: "text-orange-500" },
     SIGNED: { label: "Signed", variant: "default", color: "text-green-500" },
@@ -132,7 +166,7 @@ const Dashboard = () => {
       <Navbar />
 
       <main className="mx-auto max-w-7xl px-4 pt-24 pb-16 sm:px-6 lg:px-8">
-        
+
         {/* GLOBAL STANDARD USER PROFILE CORNER */}
         <div className="flex justify-end mb-6">
           <div className="flex items-center gap-3 bg-card/60 backdrop-blur-md border border-border/50 px-4 py-2 rounded-full shadow-sm hover:bg-card/80 transition-all">
@@ -226,6 +260,17 @@ const Dashboard = () => {
                         <Button variant="ghost" size="icon" onClick={() => handleDownload(doc.id, doc.fileName, true)} title="View"><Eye className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" onClick={() => handleDownload(doc.id, doc.fileName)} title="Download"><Download className="h-4 w-4" /></Button>
                         <Button variant="primary" size="sm" className="h-8 gap-1 shadow-md" onClick={() => navigate(`/sign/${doc.id}`)}><PenTool className="h-3.5 w-3.5" /> Sign</Button>
+                       
+                        {/* NEW DELETE BUTTON */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => handleDelete(doc.id)}
+                          title="Delete"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
                       </td>
                     </tr>
                   ))

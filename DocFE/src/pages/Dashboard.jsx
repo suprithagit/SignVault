@@ -33,23 +33,28 @@ const Dashboard = () => {
 
   // 1. Fetch Remote Documents (Updated with credentials to fix Sync Error)
   const fetchDocuments = useCallback(async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/documents`, {
-        credentials: 'include' // Sends the JWT cookie to the backend
-      });
-      if (!response.ok) throw new Error("Failed to fetch");
-      const data = await response.json();
-      setDocuments(data);
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Sync Error",
-        description: "Could not retrieve documents from the vault.",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [toast]);
+  if (!user?.email) return; // Don't fetch if user isn't loaded
+  
+  try {
+    setIsLoading(true);
+    // Passing ownerEmail as a query parameter to the Backend
+    const response = await fetch(`${API_BASE_URL}/api/documents?ownerEmail=${user.email}`, {
+      credentials: 'include'
+    });
+    
+    if (!response.ok) throw new Error("Failed to fetch");
+    const data = await response.json();
+    setDocuments(data);
+  } catch (error) {
+    toast({
+      variant: "destructive",
+      title: "Sync Error",
+      description: "Could not retrieve your personal vault.",
+    });
+  } finally {
+    setIsLoading(false);
+  }
+}, [toast, user?.email]);
 
   // Handle Protection and Initial Fetch
   useEffect(() => {
@@ -94,34 +99,31 @@ const Dashboard = () => {
     }
   };
 
+  //Delete Logic with Confirmation and Optimistic UI Update
   const handleDelete = async (docId) => {
-    // 1. Confirm with the user
-    if (!window.confirm("Are you sure you want to permanently remove this document?")) return;
+  if (!window.confirm("Are you sure you want to permanently remove this document?")) return;
 
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/documents/${docId}`, {
-        method: "DELETE",
-        credentials: 'include', // Important for authenticated deletion
-      });
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/documents/${docId}`, {
+      method: "DELETE",
+      credentials: 'include',
+    });
 
-      if (response.ok) {
-        toast({
-          title: "Deleted",
-          description: "Document has been removed from your vault.",
-        });
-        // 2. Optimistic UI update: Remove from local state immediately
-        setDocuments((prev) => prev.filter((doc) => doc.id !== docId));
-      } else {
-        throw new Error("Deletion failed");
-      }
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Could not delete the document. Please try again.",
-      });
+    if (response.ok) {
+      toast({ title: "Deleted", description: "Document removed successfully." });
+      // Optimistic UI update
+      setDocuments((prev) => prev.filter((doc) => doc.id !== docId));
+    } else {
+      throw new Error("Deletion failed");
     }
-  };
+  } catch (error) {
+    toast({
+      variant: "destructive",
+      title: "Error",
+      description: "Could not delete the document.",
+    });
+  }
+};
   // 3. Commit to Backend
   const handleCommitToBackend = async () => {
     if (!stagedFile || !user) return; // Ensure user is logged in

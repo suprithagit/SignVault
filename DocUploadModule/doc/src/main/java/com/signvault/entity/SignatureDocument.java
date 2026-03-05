@@ -19,6 +19,7 @@ public class SignatureDocument {
     private LocalDateTime uploadDate;
     private String gridFsId; // Link to the binary file in GridFS
     
+    private String ownerId;
     // Tracking fields for signatures
     private String signedBy;      // Captures the signer's name
     private LocalDateTime signedAt; // Captures the timestamp of signature

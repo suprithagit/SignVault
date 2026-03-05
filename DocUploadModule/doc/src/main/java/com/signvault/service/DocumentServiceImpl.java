@@ -38,15 +38,38 @@ public class DocumentServiceImpl implements DocumentService {
     private DocumentRepository repository;
 
     @Override
-    public SignatureDocument uploadDocument(MultipartFile file) throws IOException {
-        Object fileId = gridFsTemplate.store(file.getInputStream(), file.getOriginalFilename(), file.getContentType());
-        return repository.save(SignatureDocument.builder()
+    public SignatureDocument uploadDocument(MultipartFile file, String ownerEmail, String ownerName) throws IOException {
+        // Store binary in GridFS
+        ObjectId fileId = gridFsTemplate.store(file.getInputStream(), file.getOriginalFilename(), file.getContentType());
+        
+        // Save metadata linked to user
+        SignatureDocument doc = SignatureDocument.builder()
             .fileName(file.getOriginalFilename())
             .contentType(file.getContentType())
             .uploadDate(LocalDateTime.now())
             .status("PENDING")
             .gridFsId(fileId.toString())
-            .build());
+            .ownerId(ownerEmail) // Using email as the identifier
+            .build();
+            
+        return repository.save(doc);
+    }
+
+    @Override
+    public List<SignatureDocument> getDocumentsByOwner(String ownerEmail) {
+        return repository.findByOwnerId(ownerEmail);
+    }
+
+    @Override
+    public void deleteDocument(String id) {
+        SignatureDocument doc = repository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Document not found"));
+
+        // 1. Remove binary file from GridFS to save space
+        gridFsTemplate.delete(new Query(Criteria.where("_id").is(new ObjectId(doc.getGridFsId()))));
+
+        // 2. Remove metadata from MongoDB
+        repository.deleteById(id);
     }
 
     @Override
@@ -122,8 +145,10 @@ public class DocumentServiceImpl implements DocumentService {
     }
 
     @Override
-    public List<SignatureDocument> getAllDocuments() { return repository.findAll(); }
-
+    public List<SignatureDocument> getAllDocuments() { 
+        return repository.findAll(); 
+    }
+    
     @Override
     public SignatureDocument signDocument(String id, String signerName) {
         SignatureDocument doc = repository.findById(id).orElseThrow(() -> new RuntimeException("Not found"));

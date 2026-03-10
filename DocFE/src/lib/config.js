@@ -10,7 +10,10 @@ export const config = {
     signin: import.meta.env.VITE_SIGNIN_LINK || "/login",
   },
   images: {
-    heroBg: "/images/hero-bg.png",
-    dashboardBg: "/images/dashboard-bg.png",
+    heroBg: "/images/landing.jpg",
+    featuresBg: "/images/Features.jpg",
+    howItWorksBg: "/images/howit.jpg",
+    securityBg: "/images/security.jpg",
+    dashboardBg: "/images/dashboard.jpg",
   },
 };

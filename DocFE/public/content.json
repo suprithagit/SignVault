@@ -3,7 +3,7 @@
     "brand": "SignVault",
     "menuItems": [
       { "label": "Features", "sectionId": "features" },
-      { "label": "How It Works", "sectionId": "how-it-works" },
+      { "label": "How It ", "sectionId": "how-it-works" },
       { "label": "Security", "sectionId": "security" }
     ],
     "signInButton": "Sign In",

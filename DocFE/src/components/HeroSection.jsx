@@ -1,7 +1,8 @@
 import { motion } from "framer-motion";
 import { ArrowRight, Shield, FileCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { useContent } from "@/contexts/ContentContext";
 import { config } from "@/lib/config";
 
@@ -9,6 +10,9 @@ const iconMap = { Shield, FileCheck };
 
 const HeroSection = () => {
   const content = useContent();
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+
   const t = content.hero || {};
   const title = t.title || {};
   const trustBadges = t.trustBadges || [];
@@ -70,17 +74,15 @@ const HeroSection = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
           >
-            <Link to={config.links.signup}>
-              <Button variant="hero" size="lg" className="gap-2 text-base">
-                {t.ctaPrimary || "Start Signing Free"}
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
-            <a href={config.links.demo}>
-              <Button variant="hero-outline" size="lg" className="text-base">
-                {t.ctaSecondary || "Watch Demo"}
-              </Button>
-            </a>
+            <Button
+              variant="hero"
+              size="lg"
+              onClick={() => navigate(isAuthenticated ? config.links.dashboard : config.links.signin)}
+              className="gap-2 text-base"
+            >
+              {t.ctaPrimary || "Start Signing Free"}
+              <ArrowRight className="h-4 w-4" />
+            </Button>
           </motion.div>
 
           <motion.div

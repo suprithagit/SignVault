@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Upload, PenTool, Share2, FileDown, Shield, Clock } from "lucide-react";
 import { useContent } from "@/contexts/ContentContext";
+import { config } from "@/lib/config";
 
 const iconMap = { Upload, PenTool, Share2, FileDown, Shield, Clock };
 
@@ -10,8 +11,17 @@ const FeaturesSection = () => {
   const items = t.items || [];
 
   return (
-    <section id="features" className="py-24 sm:py-32">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <section
+      id="features"
+      className="relative py-24 sm:py-32"
+      style={{
+        backgroundImage: `url(${config.images.featuresBg})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
+      <div className="absolute inset-0 bg-background/80" />
+      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
             {t.title || "Everything You Need to Sign"}
